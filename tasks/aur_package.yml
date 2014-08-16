@@ -1,0 +1,43 @@
+---
+- name: AUR | get metadata from AurJson api
+  uri: >
+    url=https://aur.archlinux.org/rpc.php?type=search&arg={{ pkg_name | mandatory }}
+    return_content=yes
+    timeout=6
+  register: api_info
+
+- debug: var=api_info
+
+- assert:
+    that: api_info.results is defined
+
+- fail: breakpoint
+
+# url=https://aur.archlinux.org/packages/{{ pkg_name | regex_replace('^(..)', '\\1') }}/{{ pkg_name }}/{{ pkg_name }}.tar.gz
+- name: AUR | {{ pkg_name }} | download tarball
+  get_url: >
+    url=https://aur.archlinux.org{{ api_info.results.0.URLPath | mandatory }}
+    dest=/tmp/aur/
+    sha256sum={{ pkg_sha256sum | optional }}
+  register: aur_tarball
+
+- fail: breakpoint
+
+- name: AUR | {{ pkg_name }} | extract tarball
+  command: >
+    tar zxvf {{ aur_tarball.dest }}
+    chdir=/tmp/aur/
+    creates=/tmp/aur/{{ pkg_name }}
+
+- fail: breakpoint
+
+- name: AUR | {{ pkg_name }} | build package, including missing dependencies
+  command: >
+    makepkg --noconfirm --noprogressbar -m -s
+    chdir=/tmp/aur/{{ pkg_name }}
+    creates=/tmp/aur/{{ pkg_name }}/{{ pkg_name }}-{{ api_info.results.0.Version }}-{{ ansible_architecture }}.pkg.tar.xz
+  register: aur_makepkg_result
+
+- debug: var=aur_makepkg_result
+
+- fail: breakpoint

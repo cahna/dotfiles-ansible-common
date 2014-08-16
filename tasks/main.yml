@@ -1,0 +1,21 @@
+---
+- pacman: update_cache=yes
+  sudo: yes
+
+- name: install base packages
+  pacman: name={{ item }} state=present
+  sudo: yes
+  with_items:
+    - base-devel
+    - sudo
+    - openssh
+    - vim
+    - git
+    - wget
+    - htop
+
+- name: install package-query (a yaourt dependency)
+  include: aur_package.yml pkg_name=package-query
+
+- name: install yaourt
+  include: aur_package.yml pkg_name=yaourt
