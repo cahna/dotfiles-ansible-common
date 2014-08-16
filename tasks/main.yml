@@ -38,8 +38,6 @@
   with_items:
     - python2-httplib2
 
-- name: install remaining
-
 - name: install package-query (a yaourt dependency)
   include: aur_package.yml pkg_name=package-query
 
