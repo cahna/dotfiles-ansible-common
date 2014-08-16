@@ -1,18 +1,44 @@
 ---
+- assert:
+    that:
+      - ansible_pkg_mgr == 'pacman'
+      - ansible_distribution == 'Archlinux'
+
 - pacman: update_cache=yes
   sudo: yes
 
-- name: install base packages
-  pacman: name={{ item }} state=present
+- name: install essential packages
+  pacman: name={{ item }} state=installed
   sudo: yes
   with_items:
     - base-devel
+    - python2
+    - python2-pip
     - sudo
     - openssh
     - vim
     - git
     - wget
     - htop
+
+- name: setup symlinks so python2 is default version on PATH
+  file: >
+    src={{ item.file_path }}
+    dest={{ item.link_path }}
+    owner=root
+    group=root
+    state=link
+  with_items:
+    - { file_path: '/usr/bin/python2', link_path: '/usr/bin/python' }
+    - { file_path: '/usr/bin/pip2', link_path: '/usr/bin/pip' }
+
+- name: install optional Ansible dependencies, just because
+  pacman: name={{ item }} state=installed
+  sudo: yes
+  with_items:
+    - python2-httplib2
+
+- name: install remaining
 
 - name: install package-query (a yaourt dependency)
   include: aur_package.yml pkg_name=package-query
