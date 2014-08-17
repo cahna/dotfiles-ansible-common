@@ -12,14 +12,33 @@
   sudo: yes
   with_items:
     - base-devel
-    - python2
-    - python2-pip
+    - ccache
     - sudo
     - openssh
+    - python2
+    - python2-pip
     - vim
     - git
     - wget
     - htop
+    - luajit
+
+- name: enable ccache for makepkg (speed up build times for repeated builds)
+  sudo: yes
+  replace:
+    dest:      /etc/makepkg.conf
+    regexp:    '^\#?BUILDENV=\(([a-z\!\s]+)\s\!?ccache\b'
+    replace:   'BUILDENV=(\1 ccache'
+    validate:  grep -P '^BUILDENV=\([a-z\ \!]+\ ccache' %s
+    owner:     root
+    group:     root
+    mode:      '0644'
+    backup:    yes
+  register: testerdump
+  ignore_errors: yes
+
+- debug: var=testerdump
+- fail: breakpoint
 
 - name: setup symlinks so python2 is default version on PATH
   file: >
@@ -38,8 +57,11 @@
   with_items:
     - python2-httplib2
 
+- name: install luajit-luarocks
+  include: aur/pkg.yml pkg_name=luajit-luarocks
+
 - name: install package-query (a yaourt dependency)
-  include: aur_package.yml pkg_name=package-query
+  include: aur/pkg.yml pkg_name=package-query
 
 - name: install yaourt
-  include: aur_package.yml pkg_name=yaourt
+  include: aur/pkg.yml pkg_name=yaourt
