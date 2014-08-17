@@ -5,7 +5,7 @@
       - ansible_distribution == 'Archlinux'
 
 - pacman: update_cache=yes
-  sudo: yes
+ sudo: yes
 
 - name: install essential packages
   pacman: name={{ item }} state=installed

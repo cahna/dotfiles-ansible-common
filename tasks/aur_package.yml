@@ -1,43 +1,56 @@
 ---
 - name: AUR | get metadata from AurJson api
   uri: >
-    url=https://aur.archlinux.org/rpc.php?type=search&arg={{ pkg_name | mandatory }}
+    url=https://aur.archlinux.org/rpc.php?type=info&arg={{ pkg_name | mandatory }}
     return_content=yes
     timeout=6
   register: api_info
 
-- debug: var=api_info
-
 - assert:
-    that: api_info.results is defined
+    that:
+      - api_info.status == 200
+      - api_info.json is defined
+      - api_info.json.type == 'info'
+      - api_info.json.resultcount == 1
+      - api_info.json.results is defined
 
-- fail: breakpoint
+- name: AUR | rebuild tmp downloads folder
+  file: >
+    path=/tmp/aur
+    state=directory
+  register: aurdir
 
-# url=https://aur.archlinux.org/packages/{{ pkg_name | regex_replace('^(..)', '\\1') }}/{{ pkg_name }}/{{ pkg_name }}.tar.gz
 - name: AUR | {{ pkg_name }} | download tarball
   get_url: >
-    url=https://aur.archlinux.org{{ api_info.results.0.URLPath | mandatory }}
-    dest=/tmp/aur/
-    sha256sum={{ pkg_sha256sum | optional }}
+    url='https://aur.archlinux.org{{api_info.json.results.URLPath}}'
+    dest='{{ aurdir.path }}'
   register: aur_tarball
-
-- fail: breakpoint
 
 - name: AUR | {{ pkg_name }} | extract tarball
   command: >
-    tar zxvf {{ aur_tarball.dest }}
-    chdir=/tmp/aur/
-    creates=/tmp/aur/{{ pkg_name }}
+    tar zxvf {{ aur_tarball.dest | quote }}
+    chdir='{{ aurdir.path }}'
+    creates='{{ aur_tarball.dest | dirname }}/{{ pkg_name }}/PKGBUILD'
+  register: extract_tarball_result
 
-- fail: breakpoint
-
+# This will break if run as root. Don't run as root, or add allowroot flag.
 - name: AUR | {{ pkg_name }} | build package, including missing dependencies
+  sudo: no
   command: >
-    makepkg --noconfirm --noprogressbar -m -s
-    chdir=/tmp/aur/{{ pkg_name }}
-    creates=/tmp/aur/{{ pkg_name }}/{{ pkg_name }}-{{ api_info.results.0.Version }}-{{ ansible_architecture }}.pkg.tar.xz
+    makepkg --noconfirm --noprogressbar -mfs
+    chdir='{{ aurdir.path }}/{{ pkg_name }}'
   register: aur_makepkg_result
 
-- debug: var=aur_makepkg_result
+- shell: ls -1 {{ aurdir.path }}/{{ pkg_name }} | grep pkg.tar
+  register: compiled_package_name
 
-- fail: breakpoint
+- name: AUR | {{ pkg_name }} | install newly-built aur package with pacman
+  when: aur_makepkg_result | changed
+  sudo: yes
+  shell: >
+    pacman --noconfirm --noprogressbar --needed -U {{ item | quote }}
+    chdir='{{ aurdir.path }}/{{ pkg_name }}'
+  with_items:
+    - "{{ compiled_package_name.stdout }}"
+  register: pacman_install_result
+  changed_when: pacman_install_result.stdout is defined && pacman_install_result.stdout.find('there is nothing to do') == -1
