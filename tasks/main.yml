@@ -34,11 +34,6 @@
     group:     root
     mode:      '0644'
     backup:    yes
-  register: testerdump
-  ignore_errors: yes
-
-- debug: var=testerdump
-- fail: breakpoint
 
 - name: setup symlinks so python2 is default version on PATH
   file: >
