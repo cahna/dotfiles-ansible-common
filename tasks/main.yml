@@ -22,6 +22,12 @@
     - wget
     - htop
     - luajit
+    - unzip
+    - zip
+    - gzip
+    - zlib
+    - bzip2
+    - libzip
 
 - name: enable ccache for makepkg (speed up build times for repeated builds)
   sudo: yes
